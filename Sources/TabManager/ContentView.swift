@@ -40,6 +40,11 @@ struct ContentView: View {
                 .help("Write all staged edits to disk (⌘S)")
             }
         }
+        .sheet(isPresented: Binding(get: { library.organizePlan != nil }, set: { if !$0 { library.organizePlan = nil } })) {
+            if let plan = library.organizePlan {
+                OrganizeSheet(plan: plan)
+            }
+        }
         .navigationTitle(library.root?.lastPathComponent ?? "Tab Manager")
         .navigationSubtitle(subtitle)
         .overlay {
@@ -83,6 +88,8 @@ struct ContentView: View {
             Divider()
             Button("Fill Empty Artist/Title from Filename") { library.fillFromFilename(.emptyOnly) }
             Button("Overwrite Artist/Title from Filename") { library.fillFromFilename(.overwrite) }
+            Divider()
+            Button("Organize Selected Files by Metadata…") { library.prepareOrganize() }
             Divider()
             Button("Revert Changes") { library.revertSelected() }
         } primaryAction: { _ in

@@ -52,6 +52,8 @@ final class Library {
     var sortOrder = [KeyPathComparator(\TabItem.sortArtist), KeyPathComparator(\TabItem.sortTitle)]
     var selection = Set<TabItem.ID>()
     var statusMessage: String?
+    /// Set while the organize preview sheet is showing.
+    var organizePlan: Organizer.Plan?
 
     /// Opened at launch. Set automatically the first time a folder is opened; editable in Settings.
     var defaultFolder: URL? {
@@ -292,6 +294,73 @@ final class Library {
 
     func openBackups() {
         let url = URL.applicationSupportDirectory.appending(path: "TabManager/Backups")
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(url)
+    }
+
+    // MARK: Organizing
+
+    /// Selected files, or every file when nothing is selected.
+    var organizeScope: [TabItem] { selection.isEmpty ? items : selectedItems }
+
+    /// Works out the moves and shows them for confirmation. Nothing changes on disk here.
+    func prepareOrganize() {
+        guard let root else { return }
+        let scope = organizeScope
+        if scope.contains(where: \.isDirty) {
+            let alert = NSAlert()
+            alert.messageText = "Save or revert your changes first"
+            alert.informativeText = "Files are organized by their saved artist and title, so unsaved edits need to be saved (⌘S) or reverted before organizing."
+            alert.runModal()
+            return
+        }
+        var plan = Organizer.plan(
+            scope.filter(\.isEditable).map { Organizer.Source(url: $0.url, artist: $0.saved[.artist], title: $0.saved[.title]) },
+            root: root)
+        plan.skipped += scope.filter { !$0.isEditable }.map { Organizer.Skip(source: $0.url, reason: $0.error ?? "Read-only") }
+        organizePlan = plan
+    }
+
+    func performOrganize() async {
+        guard let plan = organizePlan else { return }
+        organizePlan = nil
+        isLoading = true
+        let result = await Task.detached(priority: .userInitiated) { Organizer.execute(plan) }.value
+        let log = writeOrganizeLog(plan: plan, result: result)
+
+        if let root { await load(root) }
+        statusMessage = "Moved \(result.moved.count) file\(result.moved.count == 1 ? "" : "s")"
+            + (result.failures.isEmpty ? "" : " · \(result.failures.count) failed")
+        if !result.failures.isEmpty {
+            let alert = NSAlert()
+            alert.messageText = "\(result.failures.count) file(s) couldn't be moved"
+            alert.informativeText = result.failures.prefix(20)
+                .map { "\($0.source.lastPathComponent): \($0.error)" }.joined(separator: "\n")
+                + (log.map { "\n\nFull list of moves: \($0.path)" } ?? "")
+            alert.runModal()
+        }
+    }
+
+    /// A plain-text record of every move, for tracing where a file went.
+    private func writeOrganizeLog(plan: Organizer.Plan, result: Organizer.Result) -> URL? {
+        let folder = URL.applicationSupportDirectory.appending(path: "TabManager/Organize Logs")
+        let stamp = Date().formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false).timeSeparator(.omitted))
+        let url = folder.appending(path: "\(stamp).txt")
+        let relative = { (u: URL) in u.path.replacingOccurrences(of: plan.root.path + "/", with: "") }
+        var lines = ["Organized \(plan.root.path) on \(Date().formatted())", ""]
+        lines += result.moved.map { "\(relative($0.source))  ->  \(relative($0.destination))" }
+        lines += result.failures.map { "FAILED \(relative($0.source)): \($0.error)" }
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+            return url
+        } catch {
+            return nil
+        }
+    }
+
+    func openOrganizeLogs() {
+        let url = URL.applicationSupportDirectory.appending(path: "TabManager/Organize Logs")
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         NSWorkspace.shared.open(url)
     }

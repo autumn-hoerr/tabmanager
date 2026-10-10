@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds a release TabManager.app into ./build. Pass --install to copy it to ~/Applications.
+# Builds a release TabManager.app into ./build. Pass --install to copy it to /Applications.
 set -euo pipefail
 cd "${0:A:h}"
 
@@ -45,8 +45,8 @@ codesign --force --sign - "$app"
 echo "Built $app"
 
 if [[ "${1:-}" == "--install" ]]; then
-    mkdir -p ~/Applications
-    rm -rf ~/Applications/TabManager.app
-    cp -R "$app" ~/Applications/
-    echo "Installed to ~/Applications/TabManager.app"
+    rm -rf /Applications/TabManager.app
+    cp -R "$app" /Applications/
+    rm -rf ~/Applications/TabManager.app # earlier versions installed here
+    echo "Installed to /Applications/TabManager.app"
 fi

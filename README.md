@@ -6,7 +6,7 @@ album, etc.) stored inside Guitar Pro files.
 ## Build & run
 
     ./build-app.sh             # builds build/TabManager.app
-    ./build-app.sh --install   # also copies it to ~/Applications
+    ./build-app.sh --install   # also copies it to /Applications
 
 Needs only the Xcode Command Line Tools (Swift 6).
 
@@ -23,6 +23,13 @@ The app icon is drawn in code by `Icon/make-icon.swift`; the build re-renders it
 - Right-click → *Fill Artist/Title from Filename* guesses from names like
   `Artist - Title.gp5`, `Artist-Title-09-06-2026.gp`, or `song_title_2.gp4` in an artist folder.
 - Double-click opens the file in Guitar Pro.
+- **File → Organize Files by Metadata… (⇧⌘O)** moves tabs to `<artist>/<title>.<ext>` inside the
+  open folder, e.g. `smAsHing_pUmkins/thru_ruby.gp5` → `the_smashing_pumpkins/thru_the_eyes_of_ruby.gp5`.
+  It acts on the selection, or on everything when nothing is selected, and shows every planned move
+  for confirmation first. **It can't be undone**; a record of each run is kept in
+  `~/Library/Application Support/TabManager/Organize Logs/`. Name clashes get `_2`, `_3`…, nothing
+  is ever overwritten, files without an artist and title are left alone, and running it again on an
+  organized folder changes nothing.
 
 ## Formats
 
@@ -42,4 +49,5 @@ is then copied to `~/Library/Application Support/TabManager/Backups/<timestamp>/
 (File → Show Backups in Finder) and replaced atomically.
 
 `swift run -c release tabcheck <folder> --edit` runs this edit/verify/restore cycle
-in memory over a whole folder without writing anything.
+in memory over a whole folder without writing anything. `--organize` really moves files
+(then checks nothing was lost), so only use it on a scratch copy.

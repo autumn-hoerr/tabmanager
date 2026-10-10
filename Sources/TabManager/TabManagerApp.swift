@@ -31,7 +31,14 @@ struct TabManagerApp: App {
                 Button("Reload") { library.reload() }
                     .keyboardShortcut("r")
                 Divider()
+                Button(library.selection.isEmpty ? "Organize All Files by Metadata…" : "Organize Selected Files by Metadata…") {
+                    library.prepareOrganize()
+                }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+                .disabled(library.root == nil || library.isLoading)
+                Divider()
                 Button("Show Backups in Finder") { library.openBackups() }
+                Button("Show Organize Logs in Finder") { library.openOrganizeLogs() }
             }
         }
     }
